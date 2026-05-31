@@ -1,0 +1,44 @@
+version: '3.8'
+
+# Services define the containers/tasks that will run in your swarm
+services:
+  # 1. Swarm Visualizer: This service gives you a graphical view of your cluster
+  visualizer:
+    image: dockersamples/visualizer
+    # Deploy only one replica and pin it to a manager node
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager # Ensure it runs on the manager
+    # You must mount the Docker socket so the visualizer can read the cluster state
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Publish the port so you can access the UI
+    ports:
+      - "8080:8080"
+    networks:
+      - app_overlay
+
+  # 2. Scalable Web App: A simple Nginx service to demonstrate scaling and load balancing
+  web_app:
+    image: nginx:latest
+    # Define how many copies (replicas) of this service you want
+    deploy:
+      mode: replicated
+      replicas: 3 # Swarm will try to spread these 3 tasks across your nodes
+    # The ports section exposes the service using the Swarm Routing Mesh (Ingress)
+    # Access this at http://<ANY_NODE_IP>:8080
+      placement:
+        constraints:
+          - node.role == worker
+    ports:
+      - "80:80"
+    networks:
+      - app_overlay
+
+# Networks define communication paths between services and nodes
+networks:
+  app_overlay:
+    driver: overlay # Crucial: This driver enables multi-host communication
